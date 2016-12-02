@@ -5,6 +5,8 @@ var chessbox = new Array();//储存每个位置数字
 var chess = document.getElementById('2048');
 var context = chess.getContext('2d');
 var count;
+var socer;
+var soc=document.getElementById('socer');
 //画棋盘
 function initchess() {
     context.strokeStyle = "#BFBFBF";
@@ -30,6 +32,7 @@ function init2048() {
             chessbox[i][j]=0;
         }
     }
+    socer=0;
 }
 //绘制方格
 function draw(i,j) {
@@ -150,6 +153,7 @@ function  move8() {
                 else if (chessbox[n][i] == chessbox[n - 1][i]) {
                     chessbox[n - 1][i] += chessbox[n][i];
                     chessbox[n][i] = 0;
+                    socer+=chessbox[n - 1][i];
                     draw(n,i);
                     draw(n-1,i);
                     count++;
@@ -184,6 +188,7 @@ function  move2(){
                 {
                     chessbox[n+1][i]+=chessbox[n][i];
                     chessbox[n][i]=0;
+                    socer+=chessbox[n+1][i];
                     count++;
                     draw(n,i);
                     draw(n+1,i);
@@ -216,6 +221,7 @@ function  move4(){
                 {
                     chessbox[i][n-1]+=chessbox[i][n];
                     chessbox[i][n]=0;
+                    socer+=chessbox[i][n-1];
                     count++;
                     draw(i,n);
                     draw(i,n-1);
@@ -248,6 +254,7 @@ function  move6(){
                 {
                     chessbox[i][n+1]+=chessbox[i][n];
                     chessbox[i][n]=0;
+                    socer+=chessbox[i][n+1];
                     count++;
                     draw(i,n);
                     draw(i,n+1);
@@ -288,6 +295,7 @@ onkeydown=function (e) {
     if(e && e.keyCode==39){//right
         move6();
     }
+    soc.innerText=socer;
     if(count!=0)
     {
         boom();
