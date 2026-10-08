@@ -4,7 +4,8 @@
 var chessbox = new Array();//储存每个位置数字
 var chess = document.getElementById('2048');
 var context = chess.getContext('2d');
-var count;
+var count = 0;
+var gameOver = false;
 var socer;
 var soc=document.getElementById('socer');
 //画棋盘
@@ -12,13 +13,15 @@ function initchess() {
     context.strokeStyle = "#BFBFBF";
     context.fillStyle='#F7F6F3';
     context.fillRect(0,0,400,400);
-    for(var i=0; i<5; i++)
-    {
-
-        context.moveTo(0 + i*100, 0);
-        context.lineTo(0 + i*100, 400);
-        context.moveTo(0, 0 + i*100);
-        context.lineTo(400, 0 + i*100);
+}
+// 每次绘制网格都重置路径，避免历史线段累积。
+function drawgrid() {
+    context.beginPath();
+    for (var i = 0; i < 5; i++) {
+        context.moveTo(i * 100, 0);
+        context.lineTo(i * 100, 400);
+        context.moveTo(0, i * 100);
+        context.lineTo(400, i * 100);
     }
     context.stroke();
 }
@@ -33,6 +36,9 @@ function init2048() {
         }
     }
     socer=0;
+    count=0;
+    gameOver=false;
+    soc.innerText=socer;
 }
 //绘制方格
 function draw(i,j) {
@@ -82,17 +88,10 @@ function draw(i,j) {
         context.fillStyle='#2b2b2b';
 
     }
-    for(var i=0; i<5; i++)
-    {
-        context.moveTo(0 + i*100, 0);
-        context.lineTo(0 + i*100, 400);
-        context.moveTo(0, 0 + i*100);
-        context.lineTo(400, 0 + i*100);
-    }
-    context.stroke();
 }
 //绘制所有方格
 function drawchess() {
+    initchess();
     for(var i = 0;i<4;i++)
     {
         for(var j=0;j<4;j++)
@@ -100,6 +99,7 @@ function drawchess() {
             draw(i,j);
         }
     }
+    drawgrid();
 }
 //生成一个数
 function boom() {
@@ -130,141 +130,63 @@ function boom() {
     if (c!=0){
         var d=Math.floor(c*Math.random());
         chessbox[b[2*d]][b[d*2+1]]=a;
-        draw(b[2*d],b[d*2+1]);
         return 1;
     }else{return 0;}
 }
-//移动改变数据
-function  move8() {
+// 沿移动方向读取一行：去零、合并一次、补零。
+function mergeLine(line) {
+    var values = line.filter(function (value) { return value !== 0; });
+    var result = [];
+    var score = 0;
+    for (var i = 0; i < values.length; i++) {
+        if (i + 1 < values.length && values[i] === values[i + 1]) {
+            var merged = values[i] * 2;
+            result.push(merged);
+            score += merged;
+            i++;
+        } else {
+            result.push(values[i]);
+        }
+    }
+    while (result.length < 4) result.push(0);
+    return { values: result, score: score };
+}
+function move(direction) {
+    count = 0;
+    var vertical = direction === 'up' || direction === 'down';
+    var reverse = direction === 'down' || direction === 'right';
     for (var i = 0; i < 4; i++) {
-        for (var j = 1; j < 4; j++) {
-            var n = j;
-            while (n > 0) {
-                if (chessbox[n][i] == 0) {
-                    break;
-                }
-                else if (chessbox[n - 1][i] == 0) {
-                    chessbox[n - 1][i] = chessbox[n][i];
-                    chessbox[n][i] = 0;
-                    draw(n,i);
-                    draw(n-1,i);
-                    count++;
-                }
-                else if (chessbox[n][i] == chessbox[n - 1][i]) {
-                    chessbox[n - 1][i] += chessbox[n][i];
-                    chessbox[n][i] = 0;
-                    socer+=chessbox[n - 1][i];
-                    draw(n,i);
-                    draw(n-1,i);
-                    count++;
-                    break;
-                }
-                else {
-                    break;
-                }
-                n--;
-            }
+        var line = [];
+        for (var j = 0; j < 4; j++) {
+            var position = reverse ? 3 - j : j;
+            line.push(vertical ? chessbox[position][i] : chessbox[i][position]);
+        }
+        var merged = mergeLine(line);
+        socer += merged.score;
+        for (var j = 0; j < 4; j++) {
+            var position = reverse ? 3 - j : j;
+            var row = vertical ? position : i;
+            var column = vertical ? i : position;
+            if (chessbox[row][column] !== merged.values[j]) count++;
+            chessbox[row][column] = merged.values[j];
         }
     }
+    return count !== 0;
 }
-function  move2(){
-    for(var i=0;i<4;i++){
-        for(var j=2;j>=0;j--){
-            var n=j;
-            while(n<3)
-            {
-                if(chessbox[n][i]==0){
-                    break;
-                }
-                else if(chessbox[n+1][i]==0)
-                {
-                    chessbox[n+1][i]=chessbox[n][i];
-                    chessbox[n][i]=0;
-                    draw(n,i);
-                    draw(n+1,i);
-                    count++;
-                }
-                else if(chessbox[n][i]==chessbox[n+1][i])
-                {
-                    chessbox[n+1][i]+=chessbox[n][i];
-                    chessbox[n][i]=0;
-                    socer+=chessbox[n+1][i];
-                    count++;
-                    draw(n,i);
-                    draw(n+1,i);
-                    break;
-                }
-                else{break;}
-                n++;
-            }
+function move8() { return move('up'); }
+function move2() { return move('down'); }
+function move4() { return move('left'); }
+function move6() { return move('right'); }
+// 空格或任意相邻的相同数字，都意味着还可以继续。
+function canMove() {
+    for (var i = 0; i < 4; i++) {
+        for (var j = 0; j < 4; j++) {
+            if (chessbox[i][j] === 0) return true;
+            if (i < 3 && chessbox[i][j] === chessbox[i + 1][j]) return true;
+            if (j < 3 && chessbox[i][j] === chessbox[i][j + 1]) return true;
         }
     }
-}
-function  move4(){
-    for(var i=0;i<4;i++){
-        for(var j=1;j<4;j++){
-            var n=j;
-            while(n>0)
-            {
-                if(chessbox[i][n]==0){
-                    break;
-                }
-                else if(chessbox[i][n-1]==0)
-                {
-                    chessbox[i][n-1]=chessbox[i][n];
-                    chessbox[i][n]=0;
-                    count++;
-                    draw(i,n);
-                    draw(i,n-1);
-                }
-                else if(chessbox[i][n]==chessbox[i][n-1])
-                {
-                    chessbox[i][n-1]+=chessbox[i][n];
-                    chessbox[i][n]=0;
-                    socer+=chessbox[i][n-1];
-                    count++;
-                    draw(i,n);
-                    draw(i,n-1);
-                    break;
-                }
-                else{break;}
-                n--;
-            }
-        }
-    }
-}
-function  move6(){
-    for(var i=0;i<4;i++){
-        for(var j=2;j>=0;j--){
-            var n=j;
-            while(n<3)
-            {
-                if(chessbox[i][n]==0){
-                    break;
-                }
-                else if(chessbox[i][n+1]==0)
-                {
-                    chessbox[i][n+1]=chessbox[i][n];
-                    chessbox[i][n]=0;
-                    draw(i,n);
-                    draw(i,n+1);
-                    count++;
-                }
-                else if(chessbox[i][n]==chessbox[i][n+1])
-                {
-                    chessbox[i][n+1]+=chessbox[i][n];
-                    chessbox[i][n]=0;
-                    socer+=chessbox[i][n+1];
-                    count++;
-                    draw(i,n);
-                    draw(i,n+1);
-                    break;
-                }
-                else{break;}
-                n++;
-            }
-        }
-    }
+    return false;
 }
 function  drawtext(i,j,string) {
     context.fillStyle='#3B755F';
@@ -282,41 +204,26 @@ function over() {
     drawtext(2,2,'R');
 }
 onkeydown=function (e) {
-    count=0;
-    if(e && e.keyCode==38){//上
-        move8();
-    }
-    if(e && e.keyCode==37){//left
-        move4();
-    }
-    if(e && e.keyCode==40){//下
-        move2();
-    }
-    if(e && e.keyCode==39){//right
-        move6();
+    if (!e) return;
+    var directions = {
+        ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right'
+    };
+    var legacyDirections = { 38: 'up', 40: 'down', 37: 'left', 39: 'right' };
+    var direction = e.key ? directions[e.key] : legacyDirections[e.keyCode];
+    if (!direction) return;
+    if (e.preventDefault) e.preventDefault();
+    if (gameOver) return;
+    if (move(direction)) {
+        boom();
+        drawchess();
     }
     soc.innerText=socer;
-    if(count!=0)
-    {
-        boom();
-    }else{
-        var sum;
-        sum=0;
-        for(var i = 0;i<4;i++)
-        {
-            for(var j=0;j<4;j++)
-            {
-                if(chessbox[i][j]!=0)sum++;
-            }
-        }
-        if (sum==16)over();
+    if (!canMove()) {
+        gameOver = true;
+        over();
     }
 }
-initchess();
 init2048();
 chessbox[0][0]=2;
 chessbox[1][0]=2;
 drawchess();
-
-
-
