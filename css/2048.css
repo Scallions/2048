@@ -8,6 +8,7 @@ canvas[id="2048"]{
     margin: 0;
 }
 .socer{
+    position: relative;
     padding: 10px;
     width: 100px;
     background-color:#b0c4de;
@@ -15,4 +16,25 @@ canvas[id="2048"]{
     color: #000000;
     text-align:center;
     border-radius: 20px;
+}
+
+.socer #socer {
+    font: bold 24px Arial, sans-serif;
+}
+.socer .score-gain {
+    position: absolute;
+    left: 50%;
+    top: 24px;
+    pointer-events: none;
+    color: #397457;
+    font: bold 24px Arial, sans-serif;
+    animation: score-rise 650ms ease-out forwards;
+}
+@keyframes score-rise {
+    0% { opacity: 1; transform: translate(-50%, 0) scale(0.8); }
+    25% { opacity: 1; transform: translate(-50%, -18px) scale(1.15); }
+    100% { opacity: 0; transform: translate(-50%, -65px) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .socer .score-gain { animation: none; display: none; }
 }

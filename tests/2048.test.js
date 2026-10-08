@@ -106,3 +106,60 @@ test('each redraw strokes exactly one fresh grid path', () => {
     assert.equal(rendering.strokes.length, 101);
     assert.ok(rendering.strokes.every(segments => segments === 20));
 });
+
+function installFrames(game) {
+    const frames = [];
+    let now = 0;
+    game.context.save = () => {};
+    game.context.restore = () => {};
+    game.requestAnimationFrame = callback => { frames.push(callback); };
+    return {
+        frames,
+        flush() {
+            let remaining = 200;
+            while (frames.length && remaining-- > 0) frames.shift()(now += 20);
+            assert.equal(frames.length, 0, 'animation must settle');
+        }
+    };
+}
+test('rapid input queues without changing rules or leaving an unfinished animation', () => {
+    const { game } = load();
+    const reference = load().game;
+    const scheduler = installFrames(game);
+    for (const key of ['ArrowUp', 'ArrowRight', 'ArrowDown']) {
+        game.onkeydown({ key });
+        reference.onkeydown({ key });
+    }
+    assert.equal(game.animating, true);
+    assert.equal(game.pendingMoves.length, 2);
+    assert.equal(game.socer, 4, 'queued moves must wait for the first animation');
+    scheduler.flush();
+    assert.equal(game.animating, false);
+    assert.equal(game.pendingMoves.length, 0);
+    assert.deepEqual(plain(game.chessbox), plain(reference.chessbox));
+    assert.equal(game.socer, reference.socer);
+});
+test('game over is drawn after the last spawn animation and stays visible', () => {
+    const { game, rendering } = load();
+    const scheduler = installFrames(game);
+    game.chessbox = dead.map(row => row.slice());
+    game.chessbox[0] = [4, 8, 16, 0];
+    game.onkeydown({ key: 'ArrowRight' });
+    assert.equal(game.gameOver, true);
+    assert.equal(rendering.labels.includes('O'), false);
+    game.onkeydown({ key: 'ArrowUp' });
+    scheduler.flush();
+    assert.deepEqual(rendering.labels.slice(-4), ['O', 'V', 'E', 'R']);
+    assert.equal(game.animating, false);
+    assert.equal(game.pendingMoves.length, 0);
+});
+test('reduced motion skips animation while preserving the same move and score', () => {
+    const { game } = load();
+    const scheduler = installFrames(game);
+    game.matchMedia = () => ({ matches: true });
+    game.onkeydown({ key: 'ArrowUp' });
+    assert.equal(scheduler.frames.length, 0);
+    assert.equal(game.animating, false);
+    assert.equal(game.socer, 4);
+    assert.deepEqual(plain(game.chessbox), [[4,2,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]);
+});
