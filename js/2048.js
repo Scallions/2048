@@ -4,30 +4,47 @@
 var chessbox = new Array();//储存每个位置数字
 var chess = document.getElementById('2048');
 var context = chess.getContext('2d');
+if (context.setTransform) context.setTransform(2, 0, 0, 2, 0, 0);
 var count = 0;
 var gameOver = false;
 var animating = false;
 var pendingMoves = [];
 var moveEffects = { tiles: [], merges: [] };
 var spawnedTile = null;
+var animationGeneration = 0;
+var bestScore = 0;
+try { bestScore = Math.max(0, Number(localStorage.getItem('2048-best')) || 0); } catch (e) {}
 var socer;
 var soc=document.getElementById('socer');
-//画棋盘
-function initchess() {
-    context.strokeStyle = "#BFBFBF";
-    context.fillStyle='#F7F6F3';
-    context.fillRect(0,0,400,400);
-}
-// 每次绘制网格都重置路径，避免历史线段累积。
-function drawgrid() {
+// 固定 400 单位的逻辑坐标；高分辨率画布和 CSS 负责清晰度、缩放。
+function roundFill(x, y, width, height, radius) {
     context.beginPath();
-    for (var i = 0; i < 5; i++) {
-        context.moveTo(i * 100, 0);
-        context.lineTo(i * 100, 400);
-        context.moveTo(0, i * 100);
-        context.lineTo(400, i * 100);
+    context.roundRect(x, y, width, height, radius);
+    context.fill();
+}
+function initchess() {
+    context.fillStyle = '#b7a794';
+    context.fillRect(0, 0, 400, 400);
+    context.fillStyle = '#cbbdac';
+    for (var row = 0; row < 4; row++) {
+        for (var column = 0; column < 4; column++) {
+            roundFill(13 + column * 96, 13 + row * 96, 86, 86, 10);
+        }
     }
-    context.stroke();
+}
+function updateScores() {
+    soc.innerText = socer;
+    if (socer > bestScore) {
+        bestScore = socer;
+        try { localStorage.setItem('2048-best', bestScore); } catch (e) {}
+    }
+    var best = document.getElementById('best-score');
+    if (best) best.innerText = bestScore;
+    [soc, best].forEach(function (element) {
+        if (element && element.parentElement && element.parentElement.classList) {
+            element.parentElement.classList.toggle('score-long', String(element.innerText).length > 4);
+        }
+    });
 }
 //初始化储存数字的二维数组
 function init2048() {
@@ -42,26 +59,32 @@ function init2048() {
     socer=0;
     count=0;
     gameOver=false;
-    soc.innerText=socer;
+    animationGeneration++;
+    animating = false;
+    pendingMoves = [];
+    spawnedTile = null;
+    updateScores();
+    var overlay = document.getElementById('game-over');
+    if (overlay) overlay.hidden = true;
 }
 // 静态绘制和动画共用相同的方块绘制方法。
 function tileColor(value) {
-    var colors = { 2: '#abc797', 4: '#FF8B8B', 8: '#61BFAD', 16: '#B6E2E3',
-        32: '#005397', 64: '#32B67A', 128: '#BEB4D6', 256: '#BEA1A5',
-        512: '#EFCF60', 1024: '#0D37B0', 2048: '#EF3D49',
-        4096: '#293571', 8192: '#045A5B', 16384: '#FA9A29' };
-    return colors[value] || '#abc797';
+    var colors = { 2: '#eee5d8', 4: '#eed8b2', 8: '#eca46c', 16: '#e88755',
+        32: '#dc6d4e', 64: '#c9543f', 128: '#d7ad55', 256: '#c79a3d',
+        512: '#b48a31', 1024: '#98712a', 2048: '#7c5926',
+        4096: '#695043', 8192: '#574239', 16384: '#40342e' };
+    return colors[value] || '#40342e';
 }
 function drawTile(value, row, column, scale) {
     if (!value) return;
     scale = scale === undefined ? 1 : scale;
-    var size = 100 * scale;
-    var x = column * 100 + 50;
-    var y = row * 100 + 50;
+    var size = 86 * scale;
+    var x = column * 96 + 56;
+    var y = row * 96 + 56;
     context.fillStyle = tileColor(value);
-    context.fillRect(x - size / 2, y - size / 2, size, size);
-    context.fillStyle = value >= 32 && value !== 128 && value !== 256 && value !== 512 ? '#fff' : '#2b2b2b';
-    context.font = 'bold ' + (value >= 1024 ? 26 : 32) * scale + 'px Arial';
+    roundFill(x - size / 2, y - size / 2, size, size, 10 * scale);
+    context.fillStyle = value >= 32 && value !== 128 && value !== 256 ? '#fffaf2' : '#665444';
+    context.font = 'bold ' + (value >= 1024 ? 30 : 40) * scale + 'px Arial';
     context.textBaseline = 'middle';
     context.textAlign = 'center';
     context.fillText(value, x, y);
@@ -77,7 +100,6 @@ function drawchess() {
             draw(i,j);
         }
     }
-    drawgrid();
 }
 //生成一个数
 function boom() {
@@ -188,20 +210,21 @@ function canMove() {
     }
     return false;
 }
-function  drawtext(i,j,string) {
-    context.fillStyle='#3B755F';
-    context.fillRect(100*j,100*i,100,100);
-    context.fillStyle='#2b2b2b';
-    context.font="30px Arial";
-    context.textBaseline = 'middle';//设置文本的垂直对齐方式
-    context.textAlign = 'center'; //设置文本的水平对对齐方式
-    context.fillText(string,100*j+50,100*i+50);
-}
 function over() {
-    drawtext(1,1,'O');
-    drawtext(1,2,'V');
-    drawtext(2,1,'E');
-    drawtext(2,2,'R');
+    var overlay = document.getElementById('game-over');
+    if (overlay) overlay.hidden = false;
+}
+function restartGame() {
+    // 重开时使旧动画帧失效，避免上一局的帧覆盖新棋盘。
+    init2048();
+    [chess, soc].forEach(function (element) {
+        if (element.getAnimations) element.getAnimations().forEach(function (animation) { animation.cancel(); });
+    });
+    if (document.querySelectorAll) document.querySelectorAll('.socer .score-gain').forEach(function (badge) { badge.remove(); });
+    boom();
+    boom();
+    drawchess();
+    if (chess.focus) chess.focus({ preventScroll: true });
 }
 function reducedMotion() {
     return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -214,7 +237,7 @@ function scoreFeedback(gain) {
     soc.parentElement.appendChild(badge);
     badge.addEventListener('animationend', function () { badge.remove(); }, { once: true });
     if (soc.animate) soc.animate([
-        { transform: 'scale(1)' }, { transform: 'scale(1.28)', color: '#397457' },
+        { transform: 'scale(1)' }, { transform: 'scale(1.28)', color: '#c97443' },
         { transform: 'scale(1)' }
     ], { duration: 260, easing: 'ease-out' });
 }
@@ -238,7 +261,9 @@ function animateTurn() {
     var impactPlayed = false;
     var effects = moveEffects;
     var spawn = spawnedTile;
+    var generation = animationGeneration;
     function frame(now) {
+        if (generation !== animationGeneration) return;
         if (started === undefined) started = now;
         var elapsed = now - started;
         initchess();
@@ -280,15 +305,14 @@ function animateTurn() {
                 context.fillStyle = tileColor(tile.value);
                 for (var i = 0; i < 8; i++) {
                     var angle = i * Math.PI / 4;
-                    var distance = 42 + pop * 36;
+                    var distance = 38 + pop * 30;
                     var size = 5 * (1 - pop);
-                    context.fillRect(tile.column * 100 + 50 + Math.cos(angle) * distance - size / 2,
-                        tile.row * 100 + 50 + Math.sin(angle) * distance - size / 2, size, size);
+                    context.fillRect(tile.column * 96 + 56 + Math.cos(angle) * distance - size / 2,
+                        tile.row * 96 + 56 + Math.sin(angle) * distance - size / 2, size, size);
                 }
                 context.restore();
             });
         }
-        drawgrid();
         if (elapsed < 325) requestAnimationFrame(frame);
         else finishTurn();
     }
@@ -301,7 +325,7 @@ function playTurn(direction) {
         return;
     }
     boom();
-    soc.innerText = socer;
+    updateScores();
     gameOver = !canMove();
     scoreFeedback(socer - previousScore);
     animateTurn();
@@ -321,6 +345,26 @@ onkeydown=function (e) {
         return;
     }
     playTurn(direction);
+}
+if (chess.addEventListener) {
+    var pointerStart = null;
+    chess.addEventListener('pointerdown', function (event) {
+        if (!event.isPrimary || event.button !== 0) return;
+        pointerStart = { x: event.clientX, y: event.clientY, id: event.pointerId };
+        chess.setPointerCapture(event.pointerId);
+    });
+    chess.addEventListener('pointerup', function (event) {
+        if (!pointerStart || event.pointerId !== pointerStart.id) return;
+        var dx = event.clientX - pointerStart.x;
+        var dy = event.clientY - pointerStart.y;
+        pointerStart = null;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) return;
+        var key = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'ArrowRight' : 'ArrowLeft') : (dy > 0 ? 'ArrowDown' : 'ArrowUp');
+        onkeydown({ key: key });
+    });
+    chess.addEventListener('pointercancel', function () { pointerStart = null; });
+    document.getElementById('new-game').addEventListener('click', restartGame);
+    document.getElementById('play-again').addEventListener('click', restartGame);
 }
 init2048();
 chessbox[0][0]=2;

@@ -1,13 +1,49 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>2048</title>
-    <link rel="stylesheet" href="css/2048.css?v=3">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#faf7f2">
+    <title>2048 · 再合一步</title>
+    <link rel="stylesheet" href="css/2048.css?v=4">
 </head>
-<body>
-    <div class="socer"><p>分数</p><p id="socer">0</p></div>
-    <canvas id="2048" width="400px" height="400px"></canvas>
-    <script type="text/javascript" src="js/2048.js?v=3"></script>
+<body class="game-page">
+    <main class="game-shell">
+        <header class="game-header">
+            <div class="game-brand">
+                <p class="game-eyebrow">再合一步</p>
+                <h1>2048<span class="title-dot" aria-hidden="true">.</span></h1>
+            </div>
+            <div class="game-scores" aria-label="游戏分数">
+                <div class="score-card socer">
+                    <p class="score-label">当前分数</p>
+                    <p id="socer" aria-live="polite" aria-atomic="true">0</p>
+                </div>
+                <div class="score-card score-best">
+                    <p class="score-label">最高分</p>
+                    <p id="best-score">0</p>
+                </div>
+            </div>
+        </header>
+        <div class="game-toolbar">
+            <p>小数字，大可能。<br><span>合并相同数字，向 2048 出发。</span></p>
+            <button id="new-game" class="restart-button" type="button"><span aria-hidden="true">↻</span> 新一局</button>
+        </div>
+        <section class="game-board" aria-label="2048 棋盘">
+            <canvas id="2048" width="800" height="800" tabindex="0" aria-label="使用方向键或滑动棋盘移动数字">浏览器需要支持 Canvas 才能玩此游戏。</canvas>
+            <div id="game-over" class="game-over" hidden role="status">
+                <span class="game-over-mark" aria-hidden="true">↻</span>
+                <h2>这局很棒。</h2>
+                <p>棋盘满了，再来一次？</p>
+                <button id="play-again" class="restart-button" type="button">再玩一局</button>
+            </div>
+        </section>
+        <div class="game-help">
+            <div class="key-hint" aria-hidden="true"><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd></div>
+            <p>方向键移动<span class="help-divider">·</span>手机上滑动棋盘</p>
+        </div>
+        <footer class="game-footer">慢慢来，每一步都有新的可能。</footer>
+    </main>
+    <script src="js/2048.js?v=4"></script>
 </body>
 </html>

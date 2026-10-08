@@ -4,26 +4,32 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { test } = require('node:test');
 
-function load() {
-    const rendering = { segments: 0, strokes: [], labels: [] };
+function load(initialBest = 0) {
+    const rendering = { segments: 0, strokes: [], labels: [], maxPathSegments: 0 };
     const context = {
         beginPath() { rendering.segments = 0; },
         moveTo() { rendering.segments++; },
         lineTo() { rendering.segments++; },
         stroke() { rendering.strokes.push(rendering.segments); },
+        roundRect() { rendering.segments++; rendering.maxPathSegments = Math.max(rendering.maxPathSegments, rendering.segments); },
+        fill() {},
         fillRect() {},
         fillText(text) { rendering.labels.push(text); }
     };
     const score = { innerText: 0 };
+    const best = { innerText: initialBest };
+    const overlay = { hidden: true };
+    const storage = new Map([['2048-best', String(initialBest)]]);
     const game = {
         document: { getElementById(id) {
-            return id === '2048' ? { getContext: () => context } : score;
+            return id === '2048' ? { getContext: () => context } : ({ socer: score, 'best-score': best, 'game-over': overlay }[id] || null);
         } },
+        localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, String(value)) },
         Math: Object.assign(Object.create(Math), { random: () => 0 })
     };
     vm.createContext(game);
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/2048.js'), 'utf8'), game);
-    return { game, rendering, score };
+    return { game, rendering, score, best, overlay, storage };
 }
 function plain(value) { return JSON.parse(JSON.stringify(value)); }
 function boardFor(line, direction) {
@@ -100,11 +106,10 @@ test('no-op moves do not spawn or repaint and arrows prevent scrolling', () => {
     assert.deepEqual(plain(game.chessbox), boardFor([2,4,0,0], 'left'));
     assert.equal(rendering.strokes.length, strokes);
 });
-test('each redraw strokes exactly one fresh grid path', () => {
+test('rounded board paths stay bounded across repeated redraws', () => {
     const { game, rendering } = load();
     for (let i = 0; i < 100; i++) game.drawchess();
-    assert.equal(rendering.strokes.length, 101);
-    assert.ok(rendering.strokes.every(segments => segments === 20));
+    assert.equal(rendering.maxPathSegments, 1);
 });
 
 function installFrames(game) {
@@ -140,16 +145,16 @@ test('rapid input queues without changing rules or leaving an unfinished animati
     assert.equal(game.socer, reference.socer);
 });
 test('game over is drawn after the last spawn animation and stays visible', () => {
-    const { game, rendering } = load();
+    const { game, overlay } = load();
     const scheduler = installFrames(game);
     game.chessbox = dead.map(row => row.slice());
     game.chessbox[0] = [4, 8, 16, 0];
     game.onkeydown({ key: 'ArrowRight' });
     assert.equal(game.gameOver, true);
-    assert.equal(rendering.labels.includes('O'), false);
+    assert.equal(overlay.hidden, true);
     game.onkeydown({ key: 'ArrowUp' });
     scheduler.flush();
-    assert.deepEqual(rendering.labels.slice(-4), ['O', 'V', 'E', 'R']);
+    assert.equal(overlay.hidden, false);
     assert.equal(game.animating, false);
     assert.equal(game.pendingMoves.length, 0);
 });
@@ -162,4 +167,31 @@ test('reduced motion skips animation while preserving the same move and score', 
     assert.equal(game.animating, false);
     assert.equal(game.socer, 4);
     assert.deepEqual(plain(game.chessbox), [[4,2,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]);
+});
+
+test('restart during animation discards old frames and queued moves, retaining best score', () => {
+    const { game, best, storage, overlay } = load();
+    const scheduler = installFrames(game);
+    game.onkeydown({ key: 'ArrowUp' });
+    game.onkeydown({ key: 'ArrowRight' });
+    assert.equal(game.animating, true);
+    assert.equal(best.innerText, 4);
+    assert.equal(storage.get('2048-best'), '4');
+    game.restartGame();
+    const newBoard = plain(game.chessbox);
+    scheduler.flush();
+    assert.deepEqual(plain(game.chessbox), newBoard);
+    assert.equal(game.chessbox.flat().filter(Boolean).length, 2);
+    assert.equal(game.socer, 0);
+    assert.equal(best.innerText, 4);
+    assert.equal(game.pendingMoves.length, 0);
+    assert.equal(game.animating, false);
+    assert.equal(overlay.hidden, true);
+});
+test('highest score loads from storage and cannot decrease on a new game', () => {
+    const { game, best, storage } = load(120);
+    game.onkeydown({ key: 'ArrowUp' });
+    game.restartGame();
+    assert.equal(best.innerText, 120);
+    assert.equal(storage.get('2048-best'), '120');
 });

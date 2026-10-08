@@ -1,40 +1,84 @@
-canvas[id="2048"]{
-    display: block;
-    margin:50px auto;
-    box-shadow:-2px -2px 2px #efefef,5px 5px 5px #b9b9b9;
+:root {
+    color-scheme: light;
+    --ink: #403b35;
+    --muted: #928779;
+    --accent: #c97443;
 }
-.socer p{
-    border: 0;
+.game-page {
     margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 50% 25%, #fffdf8 0%, #faf7f2 65%);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
 }
-.socer{
-    position: relative;
-    padding: 10px;
-    width: 100px;
-    background-color:#b0c4de;
-    margin:0 auto;
-    color: #000000;
-    text-align:center;
-    border-radius: 20px;
+.game-shell {
+    box-sizing: border-box;
+    width: min(100%, 472px);
+    margin: 0 auto;
+    padding: 64px 24px 28px;
 }
-
-.socer #socer {
-    font: bold 24px Arial, sans-serif;
-}
-.socer .score-gain {
-    position: absolute;
-    left: 50%;
-    top: 24px;
-    pointer-events: none;
-    color: #397457;
-    font: bold 24px Arial, sans-serif;
-    animation: score-rise 650ms ease-out forwards;
-}
+.game-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.game-brand .game-eyebrow { margin: 0 0 2px 3px; font-size: 12px; font-weight: 600; letter-spacing: 4px; color: var(--muted); }
+.game-brand h1 { margin: 0; font-size: 72px; line-height: 1.08; font-weight: 800; letter-spacing: -5px; font-variant-numeric: tabular-nums; }
+.game-brand .title-dot { color: var(--accent); }
+.game-scores { display: flex; gap: 8px; }
+.game-scores .score-card { position: relative; box-sizing: border-box; min-width: 82px; padding: 13px 12px 12px; border: 1px solid #e8dfd2; border-radius: 14px; background: #f1eadd; text-align: center; }
+.game-scores .score-best { background: #fcfaf5; }
+.game-scores .score-label { margin: 0 0 5px; color: #81715e; font-size: 10px; letter-spacing: 1px; font-weight: 600; }
+.game-scores #socer, .game-scores #best-score { margin: 0; font-size: 25px; line-height: 1.1; font-weight: 750; font-variant-numeric: tabular-nums; }
+.game-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 25px 0 22px; }
+.game-toolbar p { margin: 0; font-size: 14px; font-weight: 600; line-height: 1.85; }
+.game-toolbar p span { color: var(--muted); font-size: 12px; font-weight: 400; }
+.game-shell .restart-button { border: 0; border-radius: 11px; background: #494036; color: #fffaf2; padding: 12px 16px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 150ms, transform 150ms; }
+.game-shell .restart-button span { display: inline-block; margin-right: 5px; font-size: 17px; vertical-align: -1px; }
+.game-shell .restart-button:hover { background: #6b5240; transform: translateY(-1px); }
+.game-shell .restart-button:active { transform: scale(.96); }
+.game-shell .restart-button:focus-visible { outline: 3px solid #db9e6a; outline-offset: 4px; }
+.game-board { position: relative; border-radius: 20px; background: #b7a794; box-shadow: 0 12px 34px -18px #68503c66, 0 1px 0 #fff inset; }
+.game-board canvas[id="2048"] { display: block; width: 100%; height: auto; aspect-ratio: 1; border-radius: 20px; touch-action: none; }
+.game-board canvas:focus-visible { outline: 3px solid #db9e6a; outline-offset: 5px; }
+.game-board .game-over { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: inherit; background: #faf7f2e8; backdrop-filter: blur(5px); text-align: center; }
+.game-board .game-over[hidden] { display: none; }
+.game-over .game-over-mark { color: var(--accent); font-size: 40px; }
+.game-over h2 { margin: 10px 0; font-size: 29px; letter-spacing: -1px; }
+.game-over p { margin: 0 0 22px; color: #81715e; font-size: 14px; }
+.game-help { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 23px; }
+.game-help .key-hint { display: flex; gap: 4px; }
+.game-help kbd { display: grid; place-items: center; box-sizing: border-box; width: 23px; height: 24px; border: 1px solid #e7dfd4; border-bottom-width: 2px; border-radius: 6px; background: #fffdf8; font-family: inherit; font-size: 12px; color: #8f8171; }
+.game-help p { margin: 0; color: #8b7f70; font-size: 11px; }
+.game-help .help-divider { padding: 0 7px; }
+.game-footer { margin-top: 26px; text-align: center; font-size: 11px; letter-spacing: 1px; color: #b1a698; }
+.socer .score-gain { position: absolute; left: 50%; top: 30px; pointer-events: none; color: var(--accent); font-size: 23px; font-weight: 750; animation: score-rise 650ms ease-out forwards; }
 @keyframes score-rise {
-    0% { opacity: 1; transform: translate(-50%, 0) scale(0.8); }
+    0% { opacity: 1; transform: translate(-50%, 0) scale(.8); }
     25% { opacity: 1; transform: translate(-50%, -18px) scale(1.15); }
     100% { opacity: 0; transform: translate(-50%, -65px) scale(1); }
 }
+@media (max-width: 420px) {
+    .game-shell { padding: 30px 20px 24px; }
+    .game-brand h1 { font-size: 60px; letter-spacing: -4px; }
+    .game-brand .game-eyebrow { font-size: 10px; letter-spacing: 3px; }
+    .game-scores { gap: 6px; }
+    .game-scores .score-card { min-width: 69px; padding: 11px 9px; }
+    .game-scores #socer, .game-scores #best-score { font-size: 22px; }
+    .game-toolbar { margin: 22px 0 19px; }
+    .game-toolbar p { font-size: 13px; }
+    .game-toolbar p span { font-size: 11px; }
+    .game-help { flex-direction: column; gap: 10px; }
+}
 @media (prefers-reduced-motion: reduce) {
     .socer .score-gain { animation: none; display: none; }
+    .game-shell .restart-button { transition: none; }
 }
+@media (max-width: 360px) {
+    .game-header { gap: 10px; }
+    .game-brand h1 { font-size: 52px; }
+    .game-scores .score-card { min-width: 62px; padding: 10px 6px; }
+    .game-scores #socer, .game-scores #best-score { font-size: 20px; }
+}
+@media (max-height: 800px) and (min-width: 421px) {
+    .game-shell { padding-top: 28px; }
+}
+
+.game-scores .score-long #socer, .game-scores .score-long #best-score { font-size: 15px; min-height: 25px; display: grid; place-items: center; }
