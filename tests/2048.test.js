@@ -127,22 +127,49 @@ function installFrames(game) {
         }
     };
 }
-test('rapid input queues without changing rules or leaving an unfinished animation', () => {
+test('every rapid input applies immediately and releasing input leaves no delayed moves', () => {
     const { game } = load();
     const reference = load().game;
     const scheduler = installFrames(game);
-    for (const key of ['ArrowUp', 'ArrowRight', 'ArrowDown']) {
+    for (const key of ['ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp']) {
         game.onkeydown({ key });
         reference.onkeydown({ key });
+        assert.deepEqual(plain(game.chessbox), plain(reference.chessbox), key + ' must apply before the next frame');
+        assert.equal(game.socer, reference.socer);
     }
-    assert.equal(game.animating, true);
-    assert.equal(game.pendingMoves.length, 2);
-    assert.equal(game.socer, 4, 'queued moves must wait for the first animation');
+    const stoppedBoard = plain(game.chessbox);
+    const stoppedScore = game.socer;
     scheduler.flush();
     assert.equal(game.animating, false);
-    assert.equal(game.pendingMoves.length, 0);
-    assert.deepEqual(plain(game.chessbox), plain(reference.chessbox));
-    assert.equal(game.socer, reference.socer);
+    assert.deepEqual(plain(game.chessbox), stoppedBoard);
+    assert.equal(game.socer, stoppedScore);
+});
+test('a stale frame cannot repaint or finish a newer move animation', () => {
+    const { game, rendering } = load();
+    const scheduler = installFrames(game);
+    game.onkeydown({ key: 'ArrowUp' });
+    const staleFrame = scheduler.frames.shift();
+    game.onkeydown({ key: 'ArrowRight' });
+    const board = plain(game.chessbox);
+    const labels = rendering.labels.length;
+    staleFrame(20);
+    assert.equal(rendering.labels.length, labels);
+    assert.equal(game.animating, true);
+    assert.deepEqual(plain(game.chessbox), board);
+    scheduler.flush();
+    assert.deepEqual(plain(game.chessbox), board);
+});
+test('an invalid move during animation settles visuals without spawning another tile', () => {
+    const { game } = load();
+    const scheduler = installFrames(game);
+    game.onkeydown({ key: 'ArrowUp' });
+    const board = plain(game.chessbox);
+    game.onkeydown({ key: 'ArrowLeft' });
+    assert.equal(game.animating, false);
+    assert.deepEqual(plain(game.chessbox), board);
+    scheduler.flush();
+    assert.deepEqual(plain(game.chessbox), board);
+    assert.equal(game.socer, 4);
 });
 test('game over is drawn after the last spawn animation and stays visible', () => {
     const { game, overlay } = load();
@@ -156,7 +183,6 @@ test('game over is drawn after the last spawn animation and stays visible', () =
     scheduler.flush();
     assert.equal(overlay.hidden, false);
     assert.equal(game.animating, false);
-    assert.equal(game.pendingMoves.length, 0);
 });
 test('reduced motion skips animation while preserving the same move and score', () => {
     const { game } = load();
@@ -169,7 +195,7 @@ test('reduced motion skips animation while preserving the same move and score', 
     assert.deepEqual(plain(game.chessbox), [[4,2,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]);
 });
 
-test('restart during animation discards old frames and queued moves, retaining best score', () => {
+test('restart during interrupted animations discards old frames, retaining best score', () => {
     const { game, best, storage, overlay } = load();
     const scheduler = installFrames(game);
     game.onkeydown({ key: 'ArrowUp' });
@@ -184,7 +210,6 @@ test('restart during animation discards old frames and queued moves, retaining b
     assert.equal(game.chessbox.flat().filter(Boolean).length, 2);
     assert.equal(game.socer, 0);
     assert.equal(best.innerText, 4);
-    assert.equal(game.pendingMoves.length, 0);
     assert.equal(game.animating, false);
     assert.equal(overlay.hidden, true);
 });

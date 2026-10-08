@@ -8,7 +8,7 @@ if (context.setTransform) context.setTransform(2, 0, 0, 2, 0, 0);
 var count = 0;
 var gameOver = false;
 var animating = false;
-var pendingMoves = [];
+var animationFrame = null;
 var moveEffects = { tiles: [], merges: [] };
 var spawnedTile = null;
 var animationGeneration = 0;
@@ -59,9 +59,7 @@ function init2048() {
     socer=0;
     count=0;
     gameOver=false;
-    animationGeneration++;
-    animating = false;
-    pendingMoves = [];
+    stopTileAnimation();
     spawnedTile = null;
     updateScores();
     var overlay = document.getElementById('game-over');
@@ -241,15 +239,20 @@ function scoreFeedback(gain) {
         { transform: 'scale(1)' }
     ], { duration: 260, easing: 'ease-out' });
 }
-function finishTurn() {
-    animating = false;
-    drawchess();
-    if (gameOver) {
-        pendingMoves = [];
-        over();
-    } else if (pendingMoves.length) {
-        playTurn(pendingMoves.shift());
+function stopTileAnimation() {
+    // 已执行的移动立即落定；失效的旧帧不能再绘制或改变新动画状态。
+    animationGeneration++;
+    if (animationFrame !== null && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(animationFrame);
     }
+    animationFrame = null;
+    animating = false;
+    if (chess.getAnimations) chess.getAnimations().forEach(function (animation) { animation.cancel(); });
+}
+function finishTurn() {
+    stopTileAnimation();
+    drawchess();
+    if (gameOver) over();
 }
 function animateTurn() {
     if (typeof requestAnimationFrame !== 'function' || reducedMotion()) {
@@ -313,10 +316,10 @@ function animateTurn() {
                 context.restore();
             });
         }
-        if (elapsed < 325) requestAnimationFrame(frame);
+        if (elapsed < 325) animationFrame = requestAnimationFrame(frame);
         else finishTurn();
     }
-    requestAnimationFrame(frame);
+    animationFrame = requestAnimationFrame(frame);
 }
 function playTurn(direction) {
     var previousScore = socer;
@@ -339,11 +342,8 @@ onkeydown=function (e) {
     var direction = e.key ? directions[e.key] : legacyDirections[e.keyCode];
     if (!direction) return;
     if (e.preventDefault) e.preventDefault();
+    if (animating) finishTurn();
     if (gameOver) return;
-    if (animating) {
-        if (pendingMoves.length < 2) pendingMoves.push(direction);
-        return;
-    }
     playTurn(direction);
 }
 if (chess.addEventListener) {
